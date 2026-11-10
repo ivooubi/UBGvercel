@@ -320,6 +320,125 @@
             border: none;
         }
 
+        /* PÁGINAS PROPIAS */
+        .game-card.add-card {
+            border-style: dashed;
+            opacity: 0.8;
+        }
+
+        .game-card.add-card:hover {
+            opacity: 1;
+        }
+
+        .game-card.custom-card {
+            position: relative;
+        }
+
+        .delete-custom {
+            position: absolute;
+            top: 4px;
+            right: 6px;
+            background: none;
+            border: none;
+            color: var(--danger);
+            font-size: 1rem;
+            font-weight: 900;
+            cursor: pointer;
+            opacity: 0;
+            transition: 0.2s;
+        }
+
+        .custom-card:hover .delete-custom {
+            opacity: 1;
+        }
+
+        @media (hover: none) {
+            .delete-custom {
+                opacity: 0.7;
+            }
+        }
+
+        #add-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 6000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #add-modal.active {
+            display: flex;
+        }
+
+        .modal-box {
+            background: var(--sidebar-bg);
+            border: 1px solid rgba(128, 128, 128, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            width: 90%;
+            max-width: 380px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            backdrop-filter: blur(20px);
+        }
+
+        .modal-box h2 {
+            margin: 0 0 5px;
+            font-size: 1.2rem;
+            text-transform: uppercase;
+        }
+
+        .modal-box input {
+            background: transparent;
+            border: 1px solid rgba(128, 128, 128, 0.4);
+            border-radius: 8px;
+            color: var(--text-color);
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.9rem;
+            padding: 12px;
+            outline: none;
+        }
+
+        .modal-box input:focus {
+            border-color: var(--text-color);
+        }
+
+        .modal-error {
+            color: var(--danger);
+            font-size: 0.75rem;
+            min-height: 1em;
+        }
+
+        .modal-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        .modal-buttons button {
+            background: transparent;
+            border: 1.5px solid var(--text-color);
+            color: var(--text-color);
+            padding: 8px 18px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.75rem;
+            font-weight: 900;
+            text-transform: uppercase;
+        }
+
+        .modal-buttons .btn-cancel {
+            border-color: rgba(128, 128, 128, 0.4);
+            opacity: 0.7;
+        }
+
         @media (max-width: 850px) {
             .games-container {
                 grid-template-columns: repeat(2, 1fr);
@@ -347,6 +466,20 @@
             <button class="close-x" onclick="closeGame()">✕</button>
         </div>
         <iframe id="game-iframe" src=""></iframe>
+    </div>
+
+    <!-- VENTANA PARA AÑADIR PÁGINA -->
+    <div id="add-modal">
+        <div class="modal-box">
+            <h2>Añadir página</h2>
+            <input type="text" id="add-name" placeholder="Nombre" maxlength="30" autocomplete="off">
+            <input type="text" id="add-url" placeholder="URL (ej: https://ejemplo.com)" autocomplete="off">
+            <div class="modal-error" id="add-error"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" onclick="closeAddModal()">Cancelar</button>
+                <button onclick="saveCustomGame()">Guardar</button>
+            </div>
+        </div>
     </div>
 
     <!-- CONTENIDO PRINCIPAL -->
@@ -377,7 +510,7 @@
 
         <!-- SECCIÓN: JUEGOS -->
         <section id="games-section" class="section active">
-            <h1 class="main-title">UBGAMES.88</h1>
+            <h1 class="main-title">UBGames.88</h1>
             <div class="games-container">
                 <div class="game-card" onclick="openGame('https://geometrylitepc.io/')"><h3>Geometry Dash</h3></div>
                 <div class="game-card" onclick="openGame('https://survival-race.io/')"><h3>Survival Race</h3></div>
@@ -415,6 +548,10 @@
                 <div class="game-card" onclick="openGame('https://cdn.jsdelivr.net/gh/lucideproxy/svg@latest/logo.svg#/')"><h3>LucideProxy</h3></div>
                 <div class="game-card" onclick="openGame('https://tyronegames.gitlab.io/category/trending.html')"><h3>TyroneGames</h3></div>
                 <div class="game-card" onclick="openGame('https://duckify.top/')"><h3>Duckify</h3></div>
+
+                <!-- Páginas añadidas por ti (se guardan en el navegador) -->
+                <div id="custom-games" style="display: contents;"></div>
+                <div class="game-card add-card" onclick="openAddModal()"><h3>+ Añadir página</h3></div>
             </div>
         </section>
 
@@ -527,6 +664,109 @@
             document.body.classList.toggle('light-mode');
         }
 
+        /* ---------- PÁGINAS PROPIAS ---------- */
+        const CUSTOM_KEY = 'ubgames_custom_pages';
+
+        function loadCustomGames() {
+            try {
+                const data = JSON.parse(localStorage.getItem(CUSTOM_KEY));
+                return Array.isArray(data) ? data : [];
+            } catch (e) {
+                return [];
+            }
+        }
+
+        function storeCustomGames(list) {
+            try {
+                localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
+            } catch (e) {
+                console.error('No se pudo guardar:', e);
+            }
+        }
+
+        function renderCustomGames() {
+            const container = document.getElementById('custom-games');
+            container.innerHTML = '';
+
+            loadCustomGames().forEach((game, index) => {
+                const card = document.createElement('div');
+                card.className = 'game-card custom-card';
+                card.addEventListener('click', () => openGame(game.url));
+
+                const title = document.createElement('h3');
+                title.textContent = game.name;
+                card.appendChild(title);
+
+                const del = document.createElement('button');
+                del.className = 'delete-custom';
+                del.textContent = '✕';
+                del.title = 'Eliminar';
+                del.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteCustomGame(index);
+                });
+                card.appendChild(del);
+
+                container.appendChild(card);
+            });
+        }
+
+        function openAddModal() {
+            document.getElementById('add-name').value = '';
+            document.getElementById('add-url').value = '';
+            document.getElementById('add-error').textContent = '';
+            document.getElementById('add-modal').classList.add('active');
+            document.getElementById('add-name').focus();
+        }
+
+        function closeAddModal() {
+            document.getElementById('add-modal').classList.remove('active');
+        }
+
+        function saveCustomGame() {
+            const name = document.getElementById('add-name').value.trim();
+            let url = document.getElementById('add-url').value.trim();
+            const error = document.getElementById('add-error');
+
+            if (!name || !url) {
+                error.textContent = 'Escribe un nombre y una URL.';
+                return;
+            }
+
+            if (!/^https?:\/\//i.test(url)) {
+                url = 'https://' + url;
+            }
+
+            try {
+                new URL(url);
+            } catch (e) {
+                error.textContent = 'La URL no es válida.';
+                return;
+            }
+
+            const list = loadCustomGames();
+            list.push({ name: name, url: url });
+            storeCustomGames(list);
+            renderCustomGames();
+            closeAddModal();
+        }
+
+        function deleteCustomGame(index) {
+            const list = loadCustomGames();
+            if (!confirm('¿Eliminar "' + list[index].name + '"?')) return;
+            list.splice(index, 1);
+            storeCustomGames(list);
+            renderCustomGames();
+        }
+
+        document.getElementById('add-modal').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') saveCustomGame();
+            if (e.key === 'Escape') closeAddModal();
+        });
+
+        renderCustomGames();
+
+        /* ---------- PARTÍCULAS ---------- */
         let particles = [];
         let ctx = null, canv = null;
 
