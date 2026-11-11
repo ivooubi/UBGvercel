@@ -439,6 +439,79 @@
             opacity: 0.7;
         }
 
+        /* CUENTA ARCADE LEVELS */
+        #auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 6000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #auth-modal.active {
+            display: flex;
+        }
+
+        #hud {
+            margin-top: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 6px;
+        }
+
+        .hud-line {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-align: right;
+            max-width: 260px;
+        }
+
+        .hud-btn {
+            background: none;
+            border: 1px solid var(--text-color);
+            color: var(--text-color);
+            padding: 5px 12px;
+            cursor: pointer;
+            border-radius: 20px;
+            font-family: 'Montserrat', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 700;
+        }
+
+        .hud-btn:disabled {
+            opacity: 0.5;
+            cursor: default;
+        }
+
+        #arcade-toast {
+            position: fixed;
+            bottom: 30px;
+            left: 50%;
+            transform: translateX(-50%) translateY(20px);
+            background: var(--sidebar-bg);
+            color: var(--text-color);
+            border: 1px solid rgba(128, 128, 128, 0.4);
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 0.8rem;
+            font-weight: 700;
+            z-index: 7000;
+            opacity: 0;
+            pointer-events: none;
+            transition: 0.3s;
+        }
+
+        #arcade-toast.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
         @media (max-width: 850px) {
             .games-container {
                 grid-template-columns: repeat(2, 1fr);
@@ -449,6 +522,7 @@
             }
         }
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 
 <body>
@@ -482,6 +556,23 @@
         </div>
     </div>
 
+    <!-- VENTANA DE CUENTA (login / registro) -->
+    <div id="auth-modal">
+        <div class="modal-box">
+            <h2>Tu cuenta</h2>
+            <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
+            <input type="password" id="auth-pass" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password">
+            <div class="modal-error" id="auth-error"></div>
+            <div class="modal-buttons">
+                <button class="btn-cancel" id="auth-cancel">Cancelar</button>
+                <button id="auth-signup">Crear cuenta</button>
+                <button id="auth-signin">Entrar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="arcade-toast"></div>
+
     <!-- CONTENIDO PRINCIPAL -->
     <div id="main-content">
         <canvas id="particleCanvas"></canvas>
@@ -506,6 +597,7 @@
             <div id="clock">00:00:00</div>
             <button class="theme-toggle" onclick="toggleTheme()"
                 style="background:none; border:1px solid var(--text-color); color:var(--text-color); padding:5px 12px; cursor:pointer; border-radius:20px; font-size:0.7rem; margin-top:5px;">MODO CLARO</button>
+            <div id="hud"></div>
         </div>
 
         <!-- SECCIÓN: JUEGOS -->
@@ -578,6 +670,264 @@
     </div>
 
     <script>
+        /* ================= ARCADE LEVELS (Supabase) ================= */
+        (function () {
+            if (!window.supabase) {
+                console.warn('La librería de Supabase no se ha cargado.');
+                return;
+            }
+
+            const SUPABASE_URL = 'https://znxaokgfetpwraizodpu.supabase.co';
+            const SUPABASE_KEY = 'sb_publishable_nbRIxYwPXITtvVA5Y4Mi1g_UcpP02ZW';
+            const HEARTBEAT_MS = 30000;
+
+            const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            const hud = document.getElementById('hud');
+            const authModal = document.getElementById('auth-modal');
+            const authEmail = document.getElementById('auth-email');
+            const authPass = document.getElementById('auth-pass');
+            const authError = document.getElementById('auth-error');
+            const toastEl = document.getElementById('arcade-toast');
+
+            let sessionId = null;
+            let currentSlug = null;
+            let heartbeatTimer = null;
+            let toastTimer = null;
+
+            /* ---------- Utilidades ---------- */
+            function toast(text) {
+                toastEl.textContent = text;
+                toastEl.classList.add('show');
+                clearTimeout(toastTimer);
+                toastTimer = setTimeout(() => toastEl.classList.remove('show'), 3500);
+            }
+
+            function slugFromUrl(url) {
+                try {
+                    const u = new URL(url);
+                    return (u.hostname + u.pathname)
+                        .toLowerCase()
+                        .replace(/[^a-z0-9]+/g, '-')
+                        .replace(/^-+|-+$/g, '')
+                        .slice(0, 60) || 'juego';
+                } catch (e) {
+                    return 'juego';
+                }
+            }
+
+            async function rpc(name, args) {
+                const { data, error } = await sb.rpc(name, args);
+                if (error) throw error;
+                return data;
+            }
+
+            async function getUser() {
+                const { data } = await sb.auth.getSession();
+                return data.session ? data.session.user : null;
+            }
+
+            function makeButton(label, handler) {
+                const b = document.createElement('button');
+                b.className = 'hud-btn';
+                b.textContent = label;
+                b.addEventListener('click', handler);
+                return b;
+            }
+
+            /* ---------- Panel de estado (HUD) ---------- */
+            async function renderHud() {
+                hud.innerHTML = '';
+                const user = await getUser();
+
+                if (!user) {
+                    hud.appendChild(makeButton('Iniciar sesión', openAuth));
+                    return;
+                }
+
+                let profile = null;
+                let streak = null;
+                try {
+                    const res = await sb.from('profiles')
+                        .select('username, exp, coins, ranks(name)')
+                        .eq('id', user.id)
+                        .single();
+                    profile = res.data;
+                    streak = await rpc('get_streak_status');
+                } catch (e) {
+                    console.warn('No se pudo cargar el perfil:', e.message || e);
+                }
+
+                if (profile) {
+                    const line = document.createElement('div');
+                    line.className = 'hud-line';
+                    const rankName = profile.ranks ? profile.ranks.name : '';
+                    line.textContent = profile.username + ' · ' + rankName + ' · ' +
+                        profile.exp + ' EXP · ' + profile.coins + ' monedas';
+                    hud.appendChild(line);
+                }
+
+                if (streak) {
+                    const label = streak.can_claim
+                        ? '🔥 Reclamar racha diaria'
+                        : '🔥 Racha: ' + streak.current_streak + ' día(s) ✓';
+                    const b = makeButton(label, claimStreak);
+                    b.disabled = !streak.can_claim;
+                    hud.appendChild(b);
+                }
+
+                hud.appendChild(makeButton('Cerrar sesión', signOut));
+            }
+
+            /* ---------- Cuenta ---------- */
+            function openAuth() {
+                authError.textContent = '';
+                authModal.classList.add('active');
+                authEmail.focus();
+            }
+
+            function closeAuth() {
+                authModal.classList.remove('active');
+                authPass.value = '';
+            }
+
+            function friendlyError(err) {
+                const m = (err && err.message) || '';
+                if (/invalid login/i.test(m)) return 'Email o contraseña incorrectos.';
+                if (/already registered/i.test(m)) return 'Ese email ya tiene cuenta. Pulsa "Entrar".';
+                if (/password/i.test(m)) return 'La contraseña debe tener al menos 6 caracteres.';
+                if (/email/i.test(m)) return 'El email no es válido.';
+                return m || 'Ha ocurrido un error.';
+            }
+
+            async function doSignIn() {
+                authError.textContent = '';
+                const { error } = await sb.auth.signInWithPassword({
+                    email: authEmail.value.trim(),
+                    password: authPass.value
+                });
+                if (error) {
+                    authError.textContent = friendlyError(error);
+                    return;
+                }
+                closeAuth();
+                toast('Sesión iniciada');
+            }
+
+            async function doSignUp() {
+                authError.textContent = '';
+                const { data, error } = await sb.auth.signUp({
+                    email: authEmail.value.trim(),
+                    password: authPass.value
+                });
+                if (error) {
+                    authError.textContent = friendlyError(error);
+                    return;
+                }
+                if (!data.session) {
+                    authError.textContent = 'Cuenta creada, pero Supabase pide confirmar el email. ' +
+                        'Desactiva "Confirm email" en Authentication > Sign In / Providers > Email.';
+                    return;
+                }
+                closeAuth();
+                toast('Cuenta creada. ¡Bienvenido!');
+            }
+
+            async function signOut() {
+                await stopGame();
+                await sb.auth.signOut();
+            }
+
+            document.getElementById('auth-signin').addEventListener('click', doSignIn);
+            document.getElementById('auth-signup').addEventListener('click', doSignUp);
+            document.getElementById('auth-cancel').addEventListener('click', closeAuth);
+            authModal.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') doSignIn();
+                if (e.key === 'Escape') closeAuth();
+            });
+
+            // Nota: no se llama a funciones de Supabase directamente dentro de este
+            // callback (puede bloquearse); se difiere con setTimeout.
+            sb.auth.onAuthStateChange(() => setTimeout(renderHud, 0));
+
+            /* ---------- Racha diaria ---------- */
+            async function claimStreak() {
+                try {
+                    const res = await rpc('claim_daily_streak');
+                    if (res.claimed) {
+                        toast('Racha de ' + res.current_streak + ' día(s): +' +
+                            res.reward.exp + ' EXP, +' + res.reward.coins + ' monedas');
+                    } else {
+                        toast('Ya has reclamado la racha de hoy');
+                    }
+                } catch (e) {
+                    console.warn('No se pudo reclamar la racha:', e.message || e);
+                    toast('No se pudo reclamar la racha');
+                }
+                renderHud();
+            }
+
+            /* ---------- Tiempo de juego ---------- */
+            // El juego va en un iframe de otra web: no se puede saber si el usuario
+            // mueve el ratón dentro. Se cuenta como activo si la pestaña es visible
+            // y tiene el foco. El tope diario del servidor limita el resto.
+            function isUserPresent() {
+                return document.visibilityState === 'visible' && document.hasFocus();
+            }
+
+            async function sendHeartbeat() {
+                if (!sessionId || !isUserPresent()) return;
+                try {
+                    const res = await rpc('play_heartbeat', { p_session_id: sessionId });
+
+                    if (res && res.ok === false) {
+                        const slug = currentSlug;
+                        sessionId = null;
+                        if (slug) await beginSession(slug);
+                        return;
+                    }
+                    if (res && res.reward) renderHud();
+                } catch (e) {
+                    console.warn('Latido fallido:', e.message || e);
+                }
+            }
+
+            async function beginSession(slug) {
+                sessionId = await rpc('start_play_session', { p_game_slug: slug });
+                currentSlug = slug;
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_MS);
+            }
+
+            async function startGame(url) {
+                try {
+                    const user = await getUser();
+                    if (!user) return;
+                    await beginSession(slugFromUrl(url));
+                } catch (e) {
+                    console.warn('No se pudo iniciar la sesión de juego:', e.message || e);
+                }
+            }
+
+            async function stopGame() {
+                clearInterval(heartbeatTimer);
+                heartbeatTimer = null;
+                const id = sessionId;
+                sessionId = null;
+                currentSlug = null;
+                if (!id) return;
+                try {
+                    await rpc('end_play_session', { p_session_id: id });
+                } catch (e) {
+                    console.warn('No se pudo cerrar la sesión:', e.message || e);
+                }
+            }
+
+            window.Arcade = { startGame, stopGame };
+            renderHud();
+        })();
+        /* ================= FIN ARCADE LEVELS ================= */
+
         const lockInput = document.getElementById('lock-input');
         const lockScreen = document.getElementById('lock-screen');
         const mainContent = document.getElementById('main-content');
@@ -621,6 +971,7 @@
 
         function openGame(url) {
             gameIframe.src = url;
+            if (window.Arcade) Arcade.startGame(url);
             gameWindow.style.display = 'flex';
             document.body.classList.add('game-open');
             setTimeout(() => gameWindow.classList.add('active'), 10);
@@ -628,6 +979,7 @@
 
         function closeGame() {
             gameWindow.classList.remove('active');
+            if (window.Arcade) Arcade.stopGame();
             document.body.classList.remove('game-open');
             setTimeout(() => {
                 gameWindow.style.display = 'none';
