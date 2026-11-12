@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+    <!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -227,6 +227,7 @@
         <div class="modal-box">
             <h2>Tu cuenta</h2>
             <input type="email" id="auth-email" placeholder="Email" autocomplete="email">
+            <input type="text" id="auth-username" placeholder="Nombre de usuario (solo al crear cuenta)" maxlength="16" autocomplete="username">
             <input type="password" id="auth-pass" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="current-password">
             <div class="modal-error" id="auth-error"></div>
             <div class="modal-buttons">
@@ -353,6 +354,7 @@
             const authModal = document.getElementById('auth-modal');
             const authEmail = document.getElementById('auth-email');
             const authPass = document.getElementById('auth-pass');
+            const authUser = document.getElementById('auth-username');
             const authError = document.getElementById('auth-error');
             const toastEl = document.getElementById('arcade-toast');
 
@@ -402,12 +404,15 @@
             }
 
             /* ---------- Panel de estado (HUD) ---------- */
+            let hudRun = 0;
             async function renderHud() {
-                hud.innerHTML = '';
+                const run = ++hudRun;                    // solo la última llamada pinta
+                const frag = document.createDocumentFragment();
                 const user = await getUser();
 
                 if (!user) {
-                    hud.appendChild(makeButton('Iniciar sesión', openAuth));
+                    frag.appendChild(makeButton('Iniciar sesión', openAuth));
+                    if (run === hudRun) hud.replaceChildren(frag);
                     return;
                 }
 
@@ -423,6 +428,7 @@
                 } catch (e) {
                     console.warn('No se pudo cargar el perfil:', e.message || e);
                 }
+                if (run !== hudRun) return;
 
                 if (profile) {
                     const line = document.createElement('div');
@@ -430,7 +436,8 @@
                     const rankName = profile.ranks ? profile.ranks.name : '';
                     line.textContent = profile.username + ' · ' + rankName + ' · ' +
                         profile.exp + ' EXP · ' + profile.coins + ' monedas';
-                    hud.appendChild(line);
+                    frag.appendChild(line);
+                    frag.appendChild(makeButton('✎ Cambiar nombre', changeUsername));
                 }
 
                 if (streak) {
@@ -439,10 +446,23 @@
                         : '🔥 Racha: ' + streak.current_streak + ' día(s) ✓';
                     const b = makeButton(label, claimStreak);
                     b.disabled = !streak.can_claim;
-                    hud.appendChild(b);
+                    frag.appendChild(b);
                 }
 
-                hud.appendChild(makeButton('Cerrar sesión', signOut));
+                frag.appendChild(makeButton('Cerrar sesión', signOut));
+                hud.replaceChildren(frag);
+            }
+
+            async function changeUsername() {
+                const n = prompt('Nuevo nombre de usuario (3-16 letras, números o _):');
+                if (n === null) return;
+                try {
+                    await rpc('rw_set_username', { p_name: n });
+                    toast('Nombre actualizado');
+                } catch (e) {
+                    toast(e.message || 'No se pudo cambiar el nombre');
+                }
+                renderHud();
             }
 
             /* ---------- Cuenta ---------- */
@@ -482,6 +502,11 @@
 
             async function doSignUp() {
                 authError.textContent = '';
+                const username = authUser.value.trim();
+                if (!/^[A-Za-z0-9_]{3,16}$/.test(username)) {
+                    authError.textContent = 'Elige un nombre de usuario (3-16 letras, números o _).';
+                    return;
+                }
                 const { data, error } = await sb.auth.signUp({
                     email: authEmail.value.trim(),
                     password: authPass.value
@@ -496,7 +521,13 @@
                     return;
                 }
                 closeAuth();
-                toast('Cuenta creada. ¡Bienvenido!');
+                try {
+                    await rpc('rw_set_username', { p_name: username });
+                    toast('Cuenta creada. ¡Bienvenido, ' + username + '!');
+                } catch (e) {
+                    toast('Cuenta creada, pero el nombre falló: ' + (e.message || 'inténtalo con ✎'));
+                }
+                renderHud();
             }
 
             async function signOut() {
