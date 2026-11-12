@@ -101,7 +101,14 @@ body.layout-big #games-section .game-card{padding:44px 10px}
                 const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Tiempo de espera agotado')), 12000));
                 const { data, error } = await Promise.race([sb.rpc('rw_get_state'), timeout]);
                 if (error) throw error;
-                next = data;
+                let d = data;
+                if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { /* se valida abajo */ } }
+                if (Array.isArray(d)) d = d[0];
+                if (d && typeof d === 'object' && !Array.isArray(d.quests) && d.rw_get_state) d = d.rw_get_state;
+                if (!d || !Array.isArray(d.quests) || !Array.isArray(d.items)) {
+                    throw new Error('respuesta inesperada de rw_get_state: ' + JSON.stringify(data).slice(0, 300));
+                }
+                next = d;
             }
             if (run !== loadRun) return;
             state = next;
@@ -150,7 +157,9 @@ body.layout-big #games-section .game-card{padding:44px 10px}
             'Hoy: ' + fmt(state.seconds_today) + ' · ' + state.games_today + ' juego(s)   |   Total: ' +
             fmt(state.seconds_total) + ' · ' + state.games_total + ' juego(s)'));
         const list = el('div', 'r-list');
-        state.quests.filter((q) => q.kind === tabR).forEach((q) => {
+        const qs = state.quests.filter((q) => q.kind === tabR);
+        if (!qs.length) list.append(el('p', 'r-empty', 'No hay misiones en la base de datos. Ejecuta la parte "Datos iniciales" de rewards.sql.'));
+        qs.forEach((q) => {
             const done = q.progress >= q.target;
             const c = el('div', 'r-card');
             const top = el('div', 'r-row');
@@ -178,7 +187,9 @@ body.layout-big #games-section .game-card{padding:44px 10px}
             tabS, (k) => { tabS = k; renderShop(); }));
         sBody.append(el('div', 'r-stats', 'Tus monedas: ' + state.coins + ' 🪙'));
         const grid = el('div', 'r-shop');
-        state.items.filter((i) => i.kind === tabS).forEach((i) => {
+        const its = state.items.filter((i) => i.kind === tabS);
+        if (!its.length) grid.append(el('p', 'r-empty', 'No hay artículos en esta categoría.'));
+        its.forEach((i) => {
             const c = el('div', 'r-card');
             if (i.kind === 'background') {
                 const s = el('div', 'r-swatch');
