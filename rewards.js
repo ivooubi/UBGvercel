@@ -104,6 +104,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
                 let d = data;
                 if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { /* se valida abajo */ } }
                 if (Array.isArray(d)) d = d[0];
+                if (d && !Array.isArray(d.quests) && Array.isArray(d.rw_quests)) d.quests = d.rw_quests; // compatibilidad con SQL anterior
                 if (d && typeof d === 'object' && !Array.isArray(d.quests) && d.rw_get_state) d = d.rw_get_state;
                 if (!d || !Array.isArray(d.quests) || !Array.isArray(d.items)) {
                     throw new Error('respuesta inesperada de rw_get_state: ' + JSON.stringify(data).slice(0, 300));
