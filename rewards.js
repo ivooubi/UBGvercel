@@ -89,16 +89,31 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         });
     }
 
+    let loadRun = 0;
+    function say(body, text) { body.replaceChildren(el('p', 'r-empty', text)); }
     async function load() {
-        const { data: { session } } = await sb.auth.getSession();
-        state = null;
-        if (session) {
-            const { data, error } = await sb.rpc('rw_get_state');
-            if (error) console.warn('rewards:', error.message); else state = data;
+        const run = ++loadRun;
+        if (!state) [rBody, sBody, eBody].forEach((b) => say(b, 'Cargando…'));
+        try {
+            const { data: { session } } = await sb.auth.getSession();
+            let next = null;
+            if (session) {
+                const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Tiempo de espera agotado')), 12000));
+                const { data, error } = await Promise.race([sb.rpc('rw_get_state'), timeout]);
+                if (error) throw error;
+                next = data;
+            }
+            if (run !== loadRun) return;
+            state = next;
+            scan(false);
+            apply();
+            render();
+        } catch (e) {
+            if (run !== loadRun) return;
+            console.warn('rewards:', e);
+            state = null;
+            [rBody, sBody, eBody].forEach((b) => say(b, 'No se pudo cargar: ' + (e.message || e) + ' (¿ejecutaste rewards.sql?)'));
         }
-        scan(false);
-        apply();
-        render();
     }
 
     function apply() {
@@ -274,6 +289,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         showOrig(id);
         if (['rewards', 'shop', 'early'].includes(id)) load();
     };
-    sb.auth.onAuthStateChange(() => setTimeout(load, 0));
+    let authTimer = null;
+    sb.auth.onAuthStateChange(() => { clearTimeout(authTimer); authTimer = setTimeout(load, 300); });
     load();
 })();
