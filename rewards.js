@@ -22,6 +22,19 @@
         toast.t = setTimeout(() => n.classList.remove('show'), 3500);
     }
 
+    /* ---------- Notificación en pantalla (sin sonido) ---------- */
+    const notifStack = el('div', 'r-notifs');
+    document.body.appendChild(notifStack);
+    function notify(title, text) {
+        const n = el('div', 'r-notif');
+        n.append(el('div', 'r-notif-t', title), el('div', 'r-notif-s', text));
+        const close = () => { n.classList.remove('show'); setTimeout(() => n.remove(), 400); };
+        n.onclick = close;
+        notifStack.append(n);
+        requestAnimationFrame(() => requestAnimationFrame(() => n.classList.add('show')));
+        setTimeout(close, 6000);
+    }
+
     /* ---------- Estilos ---------- */
     const style = el('style');
     style.textContent = `
@@ -40,6 +53,14 @@
 .r-fill{height:100%;background:var(--accent-ia);transition:width .4s}
 .r-swatch{height:70px;border-radius:8px;border:1px solid rgba(128,128,128,.3)}
 .r-empty{text-align:center;opacity:.6}
+.r-notifs{position:fixed;top:16px;left:50%;transform:translateX(-50%);z-index:8000;display:flex;flex-direction:column;gap:8px;align-items:center;pointer-events:none;width:max-content;max-width:92vw}
+.r-notif{pointer-events:auto;cursor:pointer;background:var(--sidebar-bg);border:1px solid var(--accent-ia);box-shadow:0 0 18px rgba(0,242,255,.25);backdrop-filter:blur(20px);border-radius:14px;padding:12px 22px;min-width:240px;max-width:92vw;opacity:0;transform:translateY(-18px);transition:.35s}
+.r-notif.show{opacity:1;transform:translateY(0)}
+.r-notif-t{font-weight:900;font-size:.8rem;text-transform:uppercase}
+.r-notif-s{font-size:.75rem;opacity:.8;margin-top:3px}
+.r-input{flex:1;min-width:0;background:transparent;border:1px solid rgba(128,128,128,.4);border-radius:8px;color:var(--text-color);font:.85rem Montserrat,sans-serif;padding:8px 10px;outline:none}
+.r-input:focus{border-color:var(--text-color)}
+.r-secret{margin-top:18px}
 body.layout-compact #games-section .games-container{grid-template-columns:repeat(5,160px);gap:10px}
 body.layout-compact #games-section .game-card{padding:12px 6px}
 body.layout-neon #games-section .game-card{border-color:var(--accent-ia);box-shadow:0 0 14px var(--accent-ia)}
@@ -79,12 +100,29 @@ body.layout-big #games-section .game-card{padding:44px 10px}
     let state = null, tabR = 'mission', tabS = 'background';
     const ready = new Set();
 
+    function normalize(data) {
+        let d = data;
+        if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { return null; } }
+        if (Array.isArray(d)) d = d[0];
+        if (d && !Array.isArray(d.quests) && Array.isArray(d.rw_quests)) d.quests = d.rw_quests;
+        return d && Array.isArray(d.quests) && Array.isArray(d.items) ? d : null;
+    }
+
+    async function refreshQuiet() {
+        try {
+            const { data } = await sb.rpc('rw_get_state');
+            const d = normalize(data);
+            if (d) { state = d; scan(true); }
+        } catch (e) { console.warn('rewards refresh:', e.message || e); }
+    }
+
     function scan(announce) {
         if (!state) return;
         state.quests.forEach((q) => {
             if (q.progress >= q.target && !q.claimed && !ready.has(q.id)) {
                 ready.add(q.id);
-                if (announce) toast('🎯 ¡Completada: ' + q.title + '!');
+                if (announce) notify(q.kind === 'mission' ? '🎯 ¡Misión completada!' : '🏆 ¡Logro conseguido!',
+                    q.title + ' · ya puedes reclamar +' + q.exp + ' EXP y +' + q.coins + ' 🪙');
             }
         });
     }
@@ -101,14 +139,8 @@ body.layout-big #games-section .game-card{padding:44px 10px}
                 const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Tiempo de espera agotado')), 12000));
                 const { data, error } = await Promise.race([sb.rpc('rw_get_state'), timeout]);
                 if (error) throw error;
-                let d = data;
-                if (typeof d === 'string') { try { d = JSON.parse(d); } catch (e) { /* se valida abajo */ } }
-                if (Array.isArray(d)) d = d[0];
-                if (d && !Array.isArray(d.quests) && Array.isArray(d.rw_quests)) d.quests = d.rw_quests; // compatibilidad con SQL anterior
-                if (d && typeof d === 'object' && !Array.isArray(d.quests) && d.rw_get_state) d = d.rw_get_state;
-                if (!d || !Array.isArray(d.quests) || !Array.isArray(d.items)) {
-                    throw new Error('respuesta inesperada de rw_get_state: ' + JSON.stringify(data).slice(0, 300));
-                }
+                const d = normalize(data);
+                if (!d) throw new Error('respuesta inesperada de rw_get_state: ' + JSON.stringify(data).slice(0, 300));
                 next = d;
             }
             if (run !== loadRun) return;
@@ -154,6 +186,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         rBody.replaceChildren();
         if (!state) { rBody.append(el('p', 'r-empty', 'Inicia sesión para ver tus misiones y logros.')); return; }
         rBody.append(tabs([['mission', 'Misiones diarias'], ['achievement', 'Logros']], tabR, (k) => { tabR = k; renderRewards(); }));
+        rBody.append(el('div', 'r-stats', '⏱ Un juego solo cuenta si juegas al menos 1 minuto.'));
         rBody.append(el('div', 'r-stats',
             'Hoy: ' + fmt(state.seconds_today) + ' · ' + state.games_today + ' juego(s)   |   Total: ' +
             fmt(state.seconds_total) + ' · ' + state.games_total + ' juego(s)'));
@@ -217,6 +250,43 @@ body.layout-big #games-section .game-card{padding:44px 10px}
             grid.append(c);
         });
         sBody.append(grid);
+        sBody.append(secretBox());
+    }
+
+    let secretCode = null;   // código ya validado por el servidor (paso 1)
+    function secretBox() {
+        const box = el('div', 'r-card r-secret');
+        box.append(el('strong', null, '🔑 Código secreto'));
+        const row = el('div', 'r-row');
+        const input = el('input', 'r-input');
+        input.type = secretCode ? 'number' : 'password';
+        input.placeholder = secretCode ? 'Número de monedas' : 'Introduce el código';
+        if (secretCode) { input.min = 0; input.max = 1000000000; }
+        const b = el('button', 'hud-btn', secretCode ? 'Aplicar' : 'Canjear');
+        b.onclick = async () => {
+            const v = input.value.trim();
+            if (!v) return;
+            if (!secretCode) {
+                const { data, error } = await sb.rpc('rw_check_code', { p_code: v });
+                if (error) return toast(error.message);
+                if (!data) return toast('Código incorrecto');
+                secretCode = v;
+                toast('Código correcto: elige cuántas monedas quieres');
+                renderShop();
+            } else {
+                const n = Math.floor(Number(v));
+                if (!Number.isFinite(n) || n < 0 || n > 1000000000) return toast('Número no válido');
+                const { error } = await sb.rpc('rw_set_coins', { p_code: secretCode, p_coins: n });
+                secretCode = null;
+                if (error) return toast(error.message);
+                toast('Ahora tienes ' + n + ' monedas 🪙');
+                after();
+            }
+        };
+        input.onkeydown = (e) => { if (e.key === 'Enter') b.click(); };
+        row.append(input, b);
+        box.append(row);
+        return box;
     }
 
     function renderEarly() {
@@ -270,8 +340,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         if (!present()) return;
         try {
             await sb.rpc('rw_heartbeat');
-            const { data } = await sb.rpc('rw_get_state');
-            if (data) { state = data; scan(true); }
+            await refreshQuiet();
         } catch (e) { console.warn('rewards tick:', e.message || e); }
     }
 
@@ -291,6 +360,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
             clearInterval(beat);
             beat = null;
             try { await sb.rpc('rw_game_end'); } catch (e) { /* ignorar */ }
+            refreshQuiet();
         }
         await stopOrig();
     };
