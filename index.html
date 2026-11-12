@@ -41,12 +41,8 @@
             --accent-ia: #007bff;
         }
 
-        body,
-        html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
+        body, html {
+            margin: 0; padding: 0; width: 100%; height: 100%;
             background-color: var(--bg-color);
             font-family: 'Montserrat', sans-serif;
             color: var(--text-color);
@@ -56,470 +52,140 @@
 
         /* PANTALLA BLOQUEO */
         #lock-screen {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: var(--bg-color);
-            z-index: 9999;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-color); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
         }
-
-        #lock-screen.hidden {
-            display: none;
-        }
-
+        #lock-screen.hidden { display: none; }
         #lock-input {
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid var(--text-color);
-            color: var(--text-color);
-            font-family: 'Montserrat';
-            font-size: 2rem;
-            text-align: center;
-            outline: none;
-            padding: 10px;
-            width: 300px;
-            letter-spacing: 5px;
-            text-transform: lowercase;
+            background: transparent; border: none; border-bottom: 2px solid var(--text-color);
+            color: var(--text-color); font-family: 'Montserrat'; font-size: 2rem; text-align: center;
+            outline: none; padding: 10px; width: 300px; letter-spacing: 5px; text-transform: lowercase;
         }
 
         /* CONTENIDO PRINCIPAL */
-        #main-content {
-            opacity: 0;
-            transition: opacity 0.5s;
-            height: 100%;
-            width: 100%;
-            display: none;
-        }
-
-        #main-content.visible {
-            opacity: 1;
-            display: block;
-        }
-
-        #particleCanvas {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 1;
-            pointer-events: none;
-        }
+        #main-content { opacity: 0; transition: opacity 0.5s; height: 100%; width: 100%; display: none; }
+        #main-content.visible { opacity: 1; display: block; }
+        #particleCanvas { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: 1; pointer-events: none; }
 
         /* MENU HAMBURGER */
         .menu-btn {
-            position: fixed;
-            top: 25px;
-            left: 25px;
-            width: 30px;
-            height: 22px;
-            z-index: 1001;
-            cursor: pointer;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
+            position: fixed; top: 25px; left: 25px; width: 30px; height: 22px; z-index: 1001;
+            cursor: pointer; display: flex; flex-direction: column; justify-content: space-between;
         }
-
         .menu-btn .bar {
-            width: 100%;
-            height: 3px;
-            background-color: var(--text-color);
-            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease;
-            border-radius: 2px;
+            width: 100%; height: 3px; background-color: var(--text-color);
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), background-color 0.4s ease; border-radius: 2px;
         }
-
-        .menu-btn.open .bar {
-            background-color: var(--danger);
-        }
-
-        .menu-btn.open .bar:nth-child(1) {
-            transform: translateY(9.5px) rotate(45deg);
-        }
-
-        .menu-btn.open .bar:nth-child(2) {
-            opacity: 0;
-            transform: scaleX(0);
-        }
-
-        .menu-btn.open .bar:nth-child(3) {
-            transform: translateY(-9.5px) rotate(-45deg);
-        }
+        .menu-btn.open .bar { background-color: var(--danger); }
+        .menu-btn.open .bar:nth-child(1) { transform: translateY(9.5px) rotate(45deg); }
+        .menu-btn.open .bar:nth-child(2) { opacity: 0; transform: scaleX(0); }
+        .menu-btn.open .bar:nth-child(3) { transform: translateY(-9.5px) rotate(-45deg); }
 
         .sidebar {
-            position: fixed;
-            top: 0;
-            left: -280px;
-            width: 280px;
-            height: 100%;
-            background: var(--sidebar-bg);
-            backdrop-filter: blur(20px);
-            z-index: 1000;
-            transition: 0.4s;
-            padding-top: 100px;
-            border-right: 1px solid rgba(128, 128, 128, 0.2);
+            position: fixed; top: 0; left: -280px; width: 280px; height: 100%;
+            background: var(--sidebar-bg); backdrop-filter: blur(20px); z-index: 1000;
+            transition: 0.4s; padding-top: 100px; border-right: 1px solid rgba(128, 128, 128, 0.2);
         }
+        .sidebar.active { left: 0; }
+        .sidebar-item { padding: 20px 40px; font-weight: 700; cursor: pointer; opacity: 0.6; text-transform: uppercase; transition: 0.2s; }
+        .sidebar-item:hover { opacity: 1; background: rgba(128, 128, 128, 0.1); }
+        .sidebar-item.active { opacity: 1; border-left: 4px solid var(--text-color); }
 
-        .sidebar.active {
-            left: 0;
-        }
-
-        .sidebar-item {
-            padding: 20px 40px;
-            font-weight: 700;
-            cursor: pointer;
-            opacity: 0.6;
-            text-transform: uppercase;
-            transition: 0.2s;
-        }
-
-        .sidebar-item:hover {
-            opacity: 1;
-            background: rgba(128, 128, 128, 0.1);
-        }
-
-        .sidebar-item.active {
-            opacity: 1;
-            border-left: 4px solid var(--text-color);
-        }
-
-        .top-right-controls {
-            position: fixed;
-            top: 20px;
-            right: 25px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            z-index: 100;
-        }
-
-        #clock {
-            font-weight: 900;
-            font-size: 1.8rem;
-        }
+        .top-right-controls { position: fixed; top: 20px; right: 25px; display: flex; flex-direction: column; align-items: flex-end; z-index: 100; }
+        #clock { font-weight: 900; font-size: 1.8rem; }
 
         .section {
-            display: none;
-            position: relative;
-            z-index: 50;
-            flex-direction: column;
-            align-items: center;
-            height: 100vh;
-            overflow-y: auto;
-            padding-top: 40px;
-            scrollbar-width: none;
+            display: none; position: relative; z-index: 50; flex-direction: column; align-items: center;
+            height: 100vh; overflow-y: auto; padding-top: 40px; scrollbar-width: none;
         }
+        .section.active { display: flex; }
 
-        .section.active {
-            display: flex;
-        }
+        .main-title { font-size: 3.5rem; font-weight: 900; text-transform: uppercase; margin-bottom: 20px; text-align: center; margin-top: 10px; }
 
-        .main-title {
-            font-size: 3.5rem;
-            font-weight: 900;
-            text-transform: uppercase;
-            margin-bottom: 20px;
-            text-align: center;
-            margin-top: 10px;
-        }
-
-        .games-container {
-            display: grid;
-            grid-template-columns: repeat(3, 230px);
-            gap: 15px;
-            padding-bottom: 120px;
-        }
-
+        .games-container { display: grid; grid-template-columns: repeat(3, 230px); gap: 15px; padding-bottom: 120px; }
         .game-card {
-            background: var(--card-bg);
-            border: 1px solid rgba(128, 128, 128, 0.2);
-            padding: 22px 10px;
-            border-radius: 10px;
-            text-align: center;
-            cursor: pointer;
-            transition: 0.2s;
+            background: var(--card-bg); border: 1px solid rgba(128, 128, 128, 0.2); padding: 22px 10px;
+            border-radius: 10px; text-align: center; cursor: pointer; transition: 0.2s;
         }
-
-        .game-card:hover {
-            border-color: var(--text-color);
-            transform: translateY(-4px);
-        }
-
-        .game-card h3 {
-            margin: 0;
-            font-size: 0.8rem;
-            text-transform: uppercase;
-        }
+        .game-card:hover { border-color: var(--text-color); transform: translateY(-4px); }
+        .game-card h3 { margin: 0; font-size: 0.8rem; text-transform: uppercase; }
 
         /* VENTANA FLOTANTE */
         #game-window {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) scale(0.9);
-            width: 90%;
-            height: 85%;
-            background: #000;
-            border-radius: 15px;
-            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8);
-            z-index: 5000;
-            display: none;
-            flex-direction: column;
-            opacity: 0;
-            transition: 0.3s;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            overflow: hidden;
+            position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0.9);
+            width: 90%; height: 85%; background: #000; border-radius: 15px;
+            box-shadow: 0 0 50px rgba(0, 0, 0, 0.8); z-index: 5000; display: none; flex-direction: column;
+            opacity: 0; transition: 0.3s; border: 1px solid rgba(255, 255, 255, 0.1); overflow: hidden;
         }
-
-        #game-window.active {
-            display: flex;
-            opacity: 1;
-            transform: translate(-50%, -50%) scale(1);
-        }
-
+        #game-window.active { display: flex; opacity: 1; transform: translate(-50%, -50%) scale(1); }
         .game-header {
-            width: 100%;
-            height: 50px;
-            background: #111;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0 20px;
-            box-sizing: border-box;
+            width: 100%; height: 50px; background: #111; display: flex; justify-content: space-between;
+            align-items: center; padding: 0 20px; box-sizing: border-box;
         }
-
         .fullscreen-btn {
-            background: transparent;
-            border: 1.5px solid rgba(255, 255, 255, 0.3);
-            color: white;
-            padding: 6px 14px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            font-weight: 900;
+            background: transparent; border: 1.5px solid rgba(255, 255, 255, 0.3); color: white;
+            padding: 6px 14px; border-radius: 20px; cursor: pointer; font-size: 0.7rem; text-transform: uppercase; font-weight: 900;
         }
-
-        .close-x {
-            color: var(--danger);
-            font-size: 1.8rem;
-            font-weight: 900;
-            cursor: pointer;
-            border: none;
-            background: none;
-        }
-
-        #game-iframe {
-            width: 100%;
-            height: calc(100% - 50px);
-            border: none;
-        }
+        .close-x { color: var(--danger); font-size: 1.8rem; font-weight: 900; cursor: pointer; border: none; background: none; }
+        #game-iframe { width: 100%; height: calc(100% - 50px); border: none; }
 
         /* PÁGINAS PROPIAS */
-        .game-card.add-card {
-            border-style: dashed;
-            opacity: 0.8;
-        }
-
-        .game-card.add-card:hover {
-            opacity: 1;
-        }
-
-        .game-card.custom-card {
-            position: relative;
-        }
-
+        .game-card.add-card { border-style: dashed; opacity: 0.8; }
+        .game-card.add-card:hover { opacity: 1; }
+        .game-card.custom-card { position: relative; }
         .delete-custom {
-            position: absolute;
-            top: 4px;
-            right: 6px;
-            background: none;
-            border: none;
-            color: var(--danger);
-            font-size: 1rem;
-            font-weight: 900;
-            cursor: pointer;
-            opacity: 0;
-            transition: 0.2s;
+            position: absolute; top: 4px; right: 6px; background: none; border: none; color: var(--danger);
+            font-size: 1rem; font-weight: 900; cursor: pointer; opacity: 0; transition: 0.2s;
         }
+        .custom-card:hover .delete-custom { opacity: 1; }
+        @media (hover: none) { .delete-custom { opacity: 0.7; } }
 
-        .custom-card:hover .delete-custom {
-            opacity: 1;
+        #add-modal, #auth-modal {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7);
+            z-index: 6000; display: none; align-items: center; justify-content: center;
         }
-
-        @media (hover: none) {
-            .delete-custom {
-                opacity: 0.7;
-            }
-        }
-
-        #add-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 6000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #add-modal.active {
-            display: flex;
-        }
+        #add-modal.active, #auth-modal.active { display: flex; }
 
         .modal-box {
-            background: var(--sidebar-bg);
-            border: 1px solid rgba(128, 128, 128, 0.3);
-            border-radius: 15px;
-            padding: 30px;
-            width: 90%;
-            max-width: 380px;
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-            backdrop-filter: blur(20px);
+            background: var(--sidebar-bg); border: 1px solid rgba(128, 128, 128, 0.3); border-radius: 15px;
+            padding: 30px; width: 90%; max-width: 380px; display: flex; flex-direction: column; gap: 12px; backdrop-filter: blur(20px);
         }
-
-        .modal-box h2 {
-            margin: 0 0 5px;
-            font-size: 1.2rem;
-            text-transform: uppercase;
-        }
-
+        .modal-box h2 { margin: 0 0 5px; font-size: 1.2rem; text-transform: uppercase; }
         .modal-box input {
-            background: transparent;
-            border: 1px solid rgba(128, 128, 128, 0.4);
-            border-radius: 8px;
-            color: var(--text-color);
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.9rem;
-            padding: 12px;
-            outline: none;
+            background: transparent; border: 1px solid rgba(128, 128, 128, 0.4); border-radius: 8px;
+            color: var(--text-color); font-family: 'Montserrat', sans-serif; font-size: 0.9rem; padding: 12px; outline: none;
         }
-
-        .modal-box input:focus {
-            border-color: var(--text-color);
-        }
-
-        .modal-error {
-            color: var(--danger);
-            font-size: 0.75rem;
-            min-height: 1em;
-        }
-
-        .modal-buttons {
-            display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-        }
-
+        .modal-box input:focus { border-color: var(--text-color); }
+        .modal-error { color: var(--danger); font-size: 0.75rem; min-height: 1em; }
+        .modal-buttons { display: flex; gap: 10px; justify-content: flex-end; }
         .modal-buttons button {
-            background: transparent;
-            border: 1.5px solid var(--text-color);
-            color: var(--text-color);
-            padding: 8px 18px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.75rem;
-            font-weight: 900;
-            text-transform: uppercase;
+            background: transparent; border: 1.5px solid var(--text-color); color: var(--text-color);
+            padding: 8px 18px; border-radius: 20px; cursor: pointer; font-family: 'Montserrat', sans-serif;
+            font-size: 0.75rem; font-weight: 900; text-transform: uppercase;
         }
-
-        .modal-buttons .btn-cancel {
-            border-color: rgba(128, 128, 128, 0.4);
-            opacity: 0.7;
-        }
+        .modal-buttons .btn-cancel { border-color: rgba(128, 128, 128, 0.4); opacity: 0.7; }
 
         /* CUENTA ARCADE LEVELS */
-        #auth-modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.7);
-            z-index: 6000;
-            display: none;
-            align-items: center;
-            justify-content: center;
-        }
-
-        #auth-modal.active {
-            display: flex;
-        }
-
-        #hud {
-            margin-top: 8px;
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 6px;
-        }
-
-        .hud-line {
-            font-size: 0.7rem;
-            font-weight: 700;
-            text-align: right;
-            max-width: 260px;
-        }
-
+        #hud { margin-top: 8px; display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+        .hud-line { font-size: 0.7rem; font-weight: 700; text-align: right; max-width: 260px; }
         .hud-btn {
-            background: none;
-            border: 1px solid var(--text-color);
-            color: var(--text-color);
-            padding: 5px 12px;
-            cursor: pointer;
-            border-radius: 20px;
-            font-family: 'Montserrat', sans-serif;
-            font-size: 0.7rem;
-            font-weight: 700;
+            background: none; border: 1px solid var(--text-color); color: var(--text-color); padding: 5px 12px;
+            cursor: pointer; border-radius: 20px; font-family: 'Montserrat', sans-serif; font-size: 0.7rem; font-weight: 700;
         }
-
-        .hud-btn:disabled {
-            opacity: 0.5;
-            cursor: default;
-        }
+        .hud-btn:disabled { opacity: 0.5; cursor: default; }
 
         #arcade-toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(20px);
-            background: var(--sidebar-bg);
-            color: var(--text-color);
-            border: 1px solid rgba(128, 128, 128, 0.4);
-            border-radius: 20px;
-            padding: 10px 20px;
-            font-size: 0.8rem;
-            font-weight: 700;
-            z-index: 7000;
-            opacity: 0;
-            pointer-events: none;
-            transition: 0.3s;
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: var(--sidebar-bg); color: var(--text-color); border: 1px solid rgba(128, 128, 128, 0.4);
+            border-radius: 20px; padding: 10px 20px; font-size: 0.8rem; font-weight: 700; z-index: 7000;
+            opacity: 0; pointer-events: none; transition: 0.3s;
         }
-
-        #arcade-toast.show {
-            opacity: 1;
-            transform: translateX(-50%) translateY(0);
-        }
+        #arcade-toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
         @media (max-width: 850px) {
-            .games-container {
-                grid-template-columns: repeat(2, 1fr);
-            }
-
-            .main-title {
-                font-size: 2.2rem;
-            }
+            .games-container { grid-template-columns: repeat(2, 1fr); }
+            .main-title { font-size: 2.2rem; }
         }
     </style>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -584,7 +250,7 @@
             <div class="bar"></div>
         </div>
 
-        <!-- Barra lateral -->
+        <!-- Barra lateral (rewards.js añade aquí "Misiones y logros", "Tienda" y "Anticipado") -->
         <div class="sidebar" id="sidebar">
             <div class="sidebar-item active" id="btn-games" onclick="showSection('games')">Juegos</div>
             <div class="sidebar-item" id="btn-apps" onclick="showSection('apps')">Apps</div>
@@ -924,6 +590,9 @@
             }
 
             window.Arcade = { startGame, stopGame };
+            // Expuestos para el sistema de recompensas (rewards.js)
+            window.sb = sb;
+            window.renderHud = renderHud;
             renderHud();
         })();
         /* ================= FIN ARCADE LEVELS ================= */
@@ -1155,6 +824,9 @@
             requestAnimationFrame(render);
         }
     </script>
+
+    <!-- Sistema de recompensas: misiones, logros y tienda (requiere rewards.sql en Supabase) -->
+    <script src="rewards.js"></script>
     <script defer src="/_vercel/insights/script.js"></script>
 </body>
 
