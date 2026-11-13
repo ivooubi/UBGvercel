@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 
 <head>
@@ -308,9 +308,8 @@
                 <div class="game-card" onclick="openGame('https://tyronegames.gitlab.io/category/trending.html')"><h3>TyroneGames</h3></div>
                 <div class="game-card" onclick="openGame('https://duckify.top/')"><h3>Duckify</h3></div>
 
-                <!-- Páginas añadidas por ti (se guardan en el navegador) -->
+                <!-- Huecos personalizados (de pago): los pinta rewards.js -->
                 <div id="custom-games" style="display: contents;"></div>
-                <div class="game-card add-card" onclick="openAddModal()"><h3>+ Añadir página</h3></div>
             </div>
         </section>
 
@@ -411,7 +410,10 @@
                 const user = await getUser();
 
                 if (!user) {
-                    frag.appendChild(makeButton('Iniciar sesión', openAuth));
+                    const none = document.createElement('div');
+                    none.className = 'hud-line';
+                    none.textContent = 'Sin sesión · entra en Ajustes';
+                    frag.appendChild(none);
                     if (run === hudRun) hud.replaceChildren(frag);
                     return;
                 }
@@ -437,7 +439,6 @@
                     line.textContent = profile.username + ' · ' + rankName + ' · ' +
                         profile.exp + ' EXP · ' + profile.coins + ' monedas';
                     frag.appendChild(line);
-                    frag.appendChild(makeButton('✎ Cambiar nombre', changeUsername));
                 }
 
                 if (streak) {
@@ -449,20 +450,7 @@
                     frag.appendChild(b);
                 }
 
-                frag.appendChild(makeButton('Cerrar sesión', signOut));
                 hud.replaceChildren(frag);
-            }
-
-            async function changeUsername() {
-                const n = prompt('Nuevo nombre de usuario (3-16 letras, números o _):');
-                if (n === null) return;
-                try {
-                    await rpc('rw_set_username', { p_name: n });
-                    toast('Nombre actualizado');
-                } catch (e) {
-                    toast(e.message || 'No se pudo cambiar el nombre');
-                }
-                renderHud();
             }
 
             /* ---------- Cuenta ---------- */
@@ -624,6 +612,8 @@
             // Expuestos para el sistema de recompensas (rewards.js)
             window.sb = sb;
             window.renderHud = renderHud;
+            window.openAuth = openAuth;
+            window.signOut = signOut;
             renderHud();
         })();
         /* ================= FIN ARCADE LEVELS ================= */
@@ -716,107 +706,13 @@
             document.body.classList.toggle('light-mode');
         }
 
-        /* ---------- PÁGINAS PROPIAS ---------- */
-        const CUSTOM_KEY = 'ubgames_custom_pages';
-
-        function loadCustomGames() {
-            try {
-                const data = JSON.parse(localStorage.getItem(CUSTOM_KEY));
-                return Array.isArray(data) ? data : [];
-            } catch (e) {
-                return [];
-            }
-        }
-
-        function storeCustomGames(list) {
-            try {
-                localStorage.setItem(CUSTOM_KEY, JSON.stringify(list));
-            } catch (e) {
-                console.error('No se pudo guardar:', e);
-            }
-        }
-
-        function renderCustomGames() {
-            const container = document.getElementById('custom-games');
-            container.innerHTML = '';
-
-            loadCustomGames().forEach((game, index) => {
-                const card = document.createElement('div');
-                card.className = 'game-card custom-card';
-                card.addEventListener('click', () => openGame(game.url));
-
-                const title = document.createElement('h3');
-                title.textContent = game.name;
-                card.appendChild(title);
-
-                const del = document.createElement('button');
-                del.className = 'delete-custom';
-                del.textContent = '✕';
-                del.title = 'Eliminar';
-                del.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    deleteCustomGame(index);
-                });
-                card.appendChild(del);
-
-                container.appendChild(card);
-            });
-        }
-
-        function openAddModal() {
-            document.getElementById('add-name').value = '';
-            document.getElementById('add-url').value = '';
-            document.getElementById('add-error').textContent = '';
-            document.getElementById('add-modal').classList.add('active');
-            document.getElementById('add-name').focus();
-        }
-
-        function closeAddModal() {
-            document.getElementById('add-modal').classList.remove('active');
-        }
-
-        function saveCustomGame() {
-            const name = document.getElementById('add-name').value.trim();
-            let url = document.getElementById('add-url').value.trim();
-            const error = document.getElementById('add-error');
-
-            if (!name || !url) {
-                error.textContent = 'Escribe un nombre y una URL.';
-                return;
-            }
-
-            if (!/^https?:\/\//i.test(url)) {
-                url = 'https://' + url;
-            }
-
-            try {
-                new URL(url);
-            } catch (e) {
-                error.textContent = 'La URL no es válida.';
-                return;
-            }
-
-            const list = loadCustomGames();
-            list.push({ name: name, url: url });
-            storeCustomGames(list);
-            renderCustomGames();
-            closeAddModal();
-        }
-
-        function deleteCustomGame(index) {
-            const list = loadCustomGames();
-            if (!confirm('¿Eliminar "' + list[index].name + '"?')) return;
-            list.splice(index, 1);
-            storeCustomGames(list);
-            renderCustomGames();
-        }
+        /* Las páginas propias ahora son de pago y viven en rewards.js */
 
         document.getElementById('add-modal').addEventListener('keydown', (e) => {
             if (e.key === 'Enter') saveCustomGame();
             if (e.key === 'Escape') closeAddModal();
         });
 
-        renderCustomGames();
 
         /* ---------- PARTÍCULAS ---------- */
         let particles = [];
