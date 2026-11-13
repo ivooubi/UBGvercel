@@ -61,6 +61,8 @@
 .r-input{flex:1;min-width:0;background:transparent;border:1px solid rgba(128,128,128,.4);border-radius:8px;color:var(--text-color);font:.85rem Montserrat,sans-serif;padding:8px 10px;outline:none}
 .r-input:focus{border-color:var(--text-color)}
 .r-secret{margin-top:18px}
+body.layout-round #games-section .game-card{border-radius:28px}
+body.layout-glass #games-section .game-card{background:rgba(128,128,128,.14);backdrop-filter:blur(10px)}
 body.layout-compact #games-section .games-container{grid-template-columns:repeat(5,160px);gap:10px}
 body.layout-compact #games-section .game-card{padding:12px 6px}
 body.layout-neon #games-section .game-card{border-color:var(--accent-ia);box-shadow:0 0 14px var(--accent-ia)}
@@ -91,13 +93,16 @@ body.layout-big #games-section .game-card{padding:44px 10px}
     }
     addSide('rewards', 'Misiones y logros');
     addSide('shop', 'Tienda');
+    addSide('settings', 'Ajustes');
     const rBody = addSection('rewards', 'Misiones y logros');
     const sBody = addSection('shop', 'Tienda');
     const eBody = addSection('early', 'Acceso anticipado');
+    const setBody = addSection('settings', 'Ajustes');
     let earlyBtn = false;
 
     /* ---------- Estado ---------- */
     let state = null, tabR = 'mission', tabS = 'background';
+    let hasSession = false, userEmail = '';
     const ready = new Set();
 
     function normalize(data) {
@@ -134,6 +139,8 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         if (!state) [rBody, sBody, eBody].forEach((b) => say(b, 'Cargando…'));
         try {
             const { data: { session } } = await sb.auth.getSession();
+            hasSession = !!session;
+            userEmail = session ? (session.user.email || '') : '';
             let next = null;
             if (session) {
                 const timeout = new Promise((_, rej) => setTimeout(() => rej(new Error('Tiempo de espera agotado')), 12000));
@@ -153,6 +160,8 @@ body.layout-big #games-section .game-card{padding:44px 10px}
             console.warn('rewards:', e);
             state = null;
             [rBody, sBody, eBody].forEach((b) => say(b, 'No se pudo cargar: ' + (e.message || e) + ' (¿ejecutaste rewards.sql?)'));
+            renderSettings();
+            renderCustomPages();
         }
     }
 
@@ -160,9 +169,11 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         document.body.className = document.body.className.split(' ').filter((c) => !c.startsWith('layout-')).join(' ');
         document.body.style.backgroundImage = '';
         document.body.style.backgroundAttachment = 'fixed';
+        document.body.style.removeProperty('--accent-ia');
         if (!state) return;
         state.items.filter((i) => i.equipped).forEach((i) => {
             if (i.kind === 'background' && i.data.css) document.body.style.backgroundImage = i.data.css;
+            if (i.kind === 'accent' && /^#[0-9a-fA-F]{6}$/.test(i.data.color || '')) document.body.style.setProperty('--accent-ia', i.data.color);
             if (i.kind === 'layout' && /^layout-[a-z0-9-]+$/.test(i.data.class || '')) document.body.classList.add(i.data.class);
         });
         if (!earlyBtn && state.items.some((i) => i.kind === 'early_access' && i.owned)) {
@@ -217,9 +228,10 @@ body.layout-big #games-section .game-card{padding:44px 10px}
     function renderShop() {
         sBody.replaceChildren();
         if (!state) { sBody.append(el('p', 'r-empty', 'Inicia sesión para usar la tienda.')); return; }
-        sBody.append(tabs([['background', 'Fondos'], ['layout', 'Pantalla de juegos'], ['early_access', 'Acceso anticipado']],
+        sBody.append(tabs([['background', 'Fondos'], ['accent', 'Colores'], ['layout', 'Pantalla de juegos'], ['slot', 'Huecos'], ['early_access', 'Acceso anticipado']],
             tabS, (k) => { tabS = k; renderShop(); }));
         sBody.append(el('div', 'r-stats', 'Tus monedas: ' + state.coins + ' 🪙'));
+        if (tabS === 'slot') { sBody.append(slotCard(), secretBox()); return; }
         const grid = el('div', 'r-shop');
         const its = state.items.filter((i) => i.kind === tabS);
         if (!its.length) grid.append(el('p', 'r-empty', 'No hay artículos en esta categoría.'));
@@ -251,6 +263,135 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         });
         sBody.append(grid);
         sBody.append(secretBox());
+    }
+
+/* ---------- Huecos personalizados (de pago) ---------- */
+    function slotCard() {
+        const c = el('div', 'r-card');
+        const n = state.slots || 0, max = state.slots_max || 12, price = state.slot_price;
+        const full = price == null;
+        c.append(el('strong', null, 'Hueco de juego personalizado'));
+        c.append(el('div', 'r-sub', 'Desbloquea un hueco para añadir tu propia página a la pantalla de juegos. Cada hueco nuevo cuesta más.'));
+        const row = el('div', 'r-row');
+        row.append(el('span', 'r-reward', 'Tienes ' + n + ' de ' + max + (full ? '' : ' · Siguiente: ' + price + ' 🪙')));
+        const b = el('button', 'hud-btn', full ? 'Máximo alcanzado' : 'Comprar hueco');
+        b.disabled = full || state.coins < price;
+        b.onclick = buySlot;
+        row.append(b);
+        c.append(row);
+        return c;
+    }
+    async function buySlot() {
+        if (!confirm('¿Comprar un hueco personalizado por ' + state.slot_price + ' monedas?')) return;
+        const { error } = await sb.rpc('rw_buy_slot');
+        if (error) return toast(error.message);
+        toast('¡Hueco desbloqueado! Ya puedes añadir tu página');
+        after();
+    }
+
+    function openSection(id) {   // como showSection, pero sin abrir/cerrar la barra lateral
+        document.querySelectorAll('.section').forEach((s) => s.classList.remove('active'));
+        $(id + '-section').classList.add('active');
+        document.querySelectorAll('.sidebar-item').forEach((i) => i.classList.remove('active'));
+        if ($('btn-' + id)) $('btn-' + id).classList.add('active');
+        load();
+    }
+
+    function renderCustomPages() {
+        const box = $('custom-games');
+        if (!box) return;
+        box.replaceChildren();
+        if (!state) return;
+        const pages = state.pages || [], n = state.slots || 0;
+        for (let i = 1; i <= n; i++) {
+            const p = pages.find((x) => x.slot === i);
+            if (p) {
+                const c = el('div', 'game-card custom-card');
+                c.append(el('h3', null, p.name));
+                c.onclick = () => openGame(p.url);
+                const del = el('button', 'delete-custom', '✕');
+                del.title = 'Eliminar';
+                del.onclick = async (e) => {
+                    e.stopPropagation();
+                    if (!confirm('¿Eliminar "' + p.name + '"? El hueco seguirá siendo tuyo.')) return;
+                    const { error } = await sb.rpc('rw_delete_page', { p_slot: i });
+                    if (error) return toast(error.message);
+                    load();
+                };
+                c.append(del);
+                box.append(c);
+            } else {
+                const c = el('div', 'game-card add-card');
+                c.append(el('h3', null, '+ Hueco libre'));
+                c.onclick = () => window.openAddModal(i);
+                box.append(c);
+            }
+        }
+        if (state.slot_price != null) {
+            const c = el('div', 'game-card add-card');
+            c.append(el('h3', null, '🔒 Hueco · ' + state.slot_price + ' 🪙'));
+            c.onclick = () => { tabS = 'slot'; renderShop(); openSection('shop'); };
+            box.append(c);
+        }
+    }
+
+    let addSlot = null;
+    window.openAddModal = (slot) => {
+        addSlot = slot;
+        $('add-name').value = '';
+        $('add-url').value = '';
+        $('add-error').textContent = '';
+        $('add-modal').classList.add('active');
+        $('add-name').focus();
+    };
+    window.closeAddModal = () => $('add-modal').classList.remove('active');
+    window.saveCustomGame = async () => {
+        const err = $('add-error');
+        const name = $('add-name').value.trim();
+        let url = $('add-url').value.trim();
+        if (!name || !url) { err.textContent = 'Escribe un nombre y una URL.'; return; }
+        if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+        try { new URL(url); } catch (e) { err.textContent = 'La URL no es válida.'; return; }
+        const { error } = await sb.rpc('rw_save_page', { p_slot: addSlot, p_name: name, p_url: url });
+        if (error) { err.textContent = error.message; return; }
+        window.closeAddModal();
+        toast('Página guardada');
+        load();
+    };
+
+    /* ---------- Ajustes (cuenta) ---------- */
+    function renderSettings() {
+        setBody.replaceChildren();
+        const card = el('div', 'r-card');
+        if (!hasSession) {
+            card.append(el('strong', null, 'No has iniciado sesión'));
+            card.append(el('div', 'r-sub', 'Inicia sesión o crea una cuenta para guardar tus monedas, recompensas y huecos.'));
+            const b = el('button', 'hud-btn', 'Iniciar sesión / Crear cuenta');
+            b.onclick = () => window.openAuth();
+            card.append(b);
+        } else {
+            card.append(el('strong', null, 'Tu cuenta'));
+            const r1 = el('div', 'r-row');
+            r1.append(el('span', 'r-sub', 'Usuario'), el('strong', null, (state && state.username) || '—'));
+            const r2 = el('div', 'r-row');
+            r2.append(el('span', 'r-sub', 'Correo'), el('span', null, userEmail || '—'));
+            const r3 = el('div', 'r-row');
+            const rename = el('button', 'hud-btn', '✎ Cambiar nombre');
+            rename.onclick = renameUser;
+            const out = el('button', 'hud-btn', 'Cerrar sesión');
+            out.onclick = () => window.signOut();
+            r3.append(rename, out);
+            card.append(r1, r2, r3);
+        }
+        setBody.append(card);
+    }
+    async function renameUser() {
+        const n = prompt('Nuevo nombre de usuario (3-16 letras, números o _):', (state && state.username) || '');
+        if (n === null) return;
+        const { error } = await sb.rpc('rw_set_username', { p_name: n });
+        if (error) return toast(error.message);
+        toast('Nombre actualizado');
+        after();
     }
 
     let secretCode = null;   // código ya validado por el servidor (paso 1)
@@ -303,7 +444,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
         eBody.append(g);
     }
 
-    function render() { renderRewards(); renderShop(); renderEarly(); }
+    function render() { renderRewards(); renderShop(); renderEarly(); renderSettings(); renderCustomPages(); }
 
     /* ---------- Acciones ---------- */
     async function after() { await load(); if (window.renderHud) window.renderHud(); }
@@ -369,7 +510,7 @@ body.layout-big #games-section .game-card{padding:44px 10px}
     const showOrig = window.showSection;
     window.showSection = function (id) {
         showOrig(id);
-        if (['rewards', 'shop', 'early'].includes(id)) load();
+        if (['rewards', 'shop', 'early', 'settings'].includes(id)) load();
     };
     let authTimer = null;
     sb.auth.onAuthStateChange(() => { clearTimeout(authTimer); authTimer = setTimeout(load, 300); });
